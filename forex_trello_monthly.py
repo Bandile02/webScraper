@@ -1,6 +1,9 @@
 import os
 import requests
+import pandas as pd
 from bs4 import BeautifulSoup
+from typing import List, Dict
+from datetime import datetime
 from trello import TrelloClient
 
 # Trello API credentials (read from environment variables)
@@ -27,11 +30,6 @@ def fetch_existing_comments(card):
     comments = card.fetch_comments()
     return [comment['data']['text'] for comment in comments]
 
-# Function to scrape Forex Factory for news on a specific date
-def scrape_forex_factory(date):
-    url = f'https://www.forexfactory.com/calendar?day={date}'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
 
     events = []
     for row in soup.select('tr.calendar_row'):
@@ -55,8 +53,6 @@ def add_new_comments(card, events):
 
 # Main function
 def main():
-    # Specify the date to scrape (January 15, 2024)
-    date_to_scrape = 'jan15.2024'
 
     # Get the board
     board = trello_client.get_board(TRELLO_BOARD_ID)
@@ -73,9 +69,6 @@ def main():
     if not profile_card:
         print(f"Card '{TRELLO_CARD_NAME}' not found in list '{TRELLO_LIST_NAME}'")
         return
-
-    # Scrape Forex Factory for the specified date
-    events = scrape_forex_factory(date_to_scrape)
 
     if not events:
         print(f"No high or mid-impact events found for {date_to_scrape}.")
