@@ -19,7 +19,7 @@ class ForexTrelloUpdater:
         # Forex Factory configuration
         self.base_url = "https://www.forexfactory.com/calendar"
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
         }
         
         # Initialize Trello client
