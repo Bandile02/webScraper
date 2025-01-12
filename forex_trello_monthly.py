@@ -53,7 +53,11 @@ def add_new_comments(card, events):
 
 # Main function
 def main():
+    
 
+    forex = ForexNews()
+    news = forex.get_high_impact_news()
+    
     # Get the board
     board = trello_client.get_board(TRELLO_BOARD_ID)
 
@@ -69,6 +73,8 @@ def main():
     if not profile_card:
         print(f"Card '{TRELLO_CARD_NAME}' not found in list '{TRELLO_LIST_NAME}'")
         return
+
+
 class ForexNews:
     def __init__(self):
         self.base_url = "https://www.forexfactory.com/calendar"
@@ -131,23 +137,9 @@ class ForexNews:
         element = row.find('td', class_=class_name)
         return element.text.strip() if element else 'N/A'
 
-    def save_to_json(self, news_items: List[Dict], filename: str = 'forex_news.json') -> None:
-        """Save news items to a JSON file"""
-        try:
-            with open(filename, 'w') as f:
-                json.dump(news_items, f, indent=2)
-            print(f"News saved to {filename}")
-        except Exception as e:
-            print(f"Error saving to JSON: {e}")
-
-def main():
-    # Initialize and run
-    forex = ForexNews()
-    news = forex.get_high_impact_news()
-    
-    
 
 
+ 
     
     if not news:
         print(f"No high or mid-impact events found for {date_to_scrape}.")
