@@ -30,3 +30,13 @@ jobs:
           TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
         run: |
           python forex_trello_monthly.py
+
+env:
+  FOREX_CONFIG:
+    base_url: "https://www.forexfactory.com/calendar"
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    output_file: "forex_news.json"
+    display:
+      max_rows: null
+      max_columns: null
+      max_colwidth: null
