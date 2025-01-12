@@ -55,8 +55,8 @@ def add_new_comments(card, events):
 
 # Main function
 def main():
-    # Specify the date to scrape (January 19, 2024)
-    date_to_scrape = 'jan19.2024'
+    # Specify the date to scrape (January 15, 2024)
+    date_to_scrape = 'jan15.2024'
 
     # Get the board
     board = trello_client.get_board(TRELLO_BOARD_ID)
