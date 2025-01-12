@@ -69,13 +69,92 @@ def main():
     if not profile_card:
         print(f"Card '{TRELLO_CARD_NAME}' not found in list '{TRELLO_LIST_NAME}'")
         return
+class ForexNews:
+    def __init__(self):
+        self.base_url = "https://www.forexfactory.com/calendar"
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
 
-    if not events:
+    def get_high_impact_news(self) -> List[Dict]:
+        """
+        Fetches high-impact news events from Forex Factory.
+        
+        Returns:
+            List[Dict]: List of dictionaries containing news events
+        """
+        try:
+            print("Fetching forex news...")
+            response = requests.get(self.base_url, headers=self.headers)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            news_items = []
+            calendar_rows = soup.find_all('tr', class_='calendar_row')
+            current_date = None
+            
+            for row in calendar_rows:
+                # Check for high impact events
+                impact = row.find('td', class_='impact')
+                if impact and 'high' in str(impact).lower():
+                    # Update date if available
+                    date_cell = row.find('td', class_='calendar__date')
+                    if date_cell and date_cell.text.strip():
+                        current_date = date_cell.text.strip()
+                    
+                    # Extract event details
+                    news_item = {
+                        'date': current_date,
+                        'time': self._extract_text(row, 'calendar__time'),
+                        'currency': self._extract_text(row, 'calendar__currency'),
+                        'event': self._extract_text(row, 'calendar__event'),
+                        'actual': self._extract_text(row, 'calendar__actual'),
+                        'forecast': self._extract_text(row, 'calendar__forecast'),
+                        'previous': self._extract_text(row, 'calendar__previous'),
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    news_items.append(news_item)
+            
+            print(f"Found {len(news_items)} high-impact events")
+            return news_items
+            
+        except requests.RequestException as e:
+            print(f"Network error: {e}")
+            return []
+        except Exception as e:
+            print(f"Error parsing data: {e}")
+            return []
+
+    def _extract_text(self, row: BeautifulSoup, class_name: str) -> str:
+        """Helper method to extract text from a table cell"""
+        element = row.find('td', class_=class_name)
+        return element.text.strip() if element else 'N/A'
+
+    def save_to_json(self, news_items: List[Dict], filename: str = 'forex_news.json') -> None:
+        """Save news items to a JSON file"""
+        try:
+            with open(filename, 'w') as f:
+                json.dump(news_items, f, indent=2)
+            print(f"News saved to {filename}")
+        except Exception as e:
+            print(f"Error saving to JSON: {e}")
+
+def main():
+    # Initialize and run
+    forex = ForexNews()
+    news = forex.get_high_impact_news()
+    
+    
+
+
+    
+    if not news:
         print(f"No high or mid-impact events found for {date_to_scrape}.")
         return
 
     # Add new comments to the card
-    add_new_comments(profile_card, events)
+    add_new_comments(profile_card, news)
 
 if __name__ == "__main__":
     main()
