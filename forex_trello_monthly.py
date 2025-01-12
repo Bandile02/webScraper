@@ -1,160 +1,93 @@
 import os
-import requests
-from bs4 import BeautifulSoup
-from typing import List, Dict
-from datetime import datetime
+from requests_html import HTMLSession
 from trello import TrelloClient
 
-class ForexTrelloUpdater:
-    def __init__(self):
-        # Initialize Trello credentials
-        self.api_key = os.getenv('TRELLO_API_KEY')
-        self.token = os.getenv('TRELLO_TOKEN')
-        
-        # Trello configuration
-        self.board_id = 'PFLsmGNh'
-        self.list_name = 'OnGoing'
-        self.card_name = 'Profile'
-        
-        # Forex Factory configuration
-        self.base_url = "https://www.forexfactory.com/calendar"
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
-        }
-        
-        # Initialize Trello client
-        self.trello = TrelloClient(
-            api_key=self.api_key,
-            token=self.token
-        )
-    
-    def get_card(self):
-        """Get the target Trello card"""
-        try:
-            # Get board
-            board = self.trello.get_board(self.board_id)
-            
-            # Find target list
-            target_list = None
-            for lst in board.list_lists():
-                if lst.name == self.list_name:
-                    target_list = lst
-                    break
-                    
-            if not target_list:
-                raise Exception(f"List '{self.list_name}' not found")
-            
-            # Find target card
-            target_card = None
-            for card in target_list.list_cards():
-                if card.name == self.card_name:
-                    target_card = card
-                    break
-                    
-            if not target_card:
-                raise Exception(f"Card '{self.card_name}' not found")
-                
-            return target_card
-            
-        except Exception as e:
-            print(f"Error accessing Trello: {e}")
-            return None
+# Trello API credentials (read from environment variables)
+TRELLO_API_KEY = os.getenv('TRELLO_API_KEY')
+TRELLO_TOKEN = os.getenv('TRELLO_TOKEN')
+TRELLO_BOARD_ID = 'PFLsmGNh'  # Your Trello board ID
+TRELLO_LIST_NAME = 'OnGoing'  # Trello list name
+TRELLO_CARD_NAME = 'Profile'  # Trello card name
 
-    def get_forex_news(self) -> List[Dict]:
-        """Fetch high-impact forex news"""
-        try:
-            response = requests.get(self.base_url, headers=self.headers)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            news_items = []
-            current_date = None
-            
-            for row in soup.find_all('tr', class_='calendar_row'):
-                impact = row.find('td', class_='impact')
-                if impact and 'high' in str(impact).lower():
-                    # Get date if available
-                    date_cell = row.find('td', class_='calendar__date')
-                    if date_cell and date_cell.text.strip():
-                        current_date = date_cell.text.strip()
-                    
-                    # Extract event details
-                    news_item = {
-                        'date': current_date,
-                        'time': self._get_cell_text(row, 'calendar__time'),
-                        'currency': self._get_cell_text(row, 'calendar__currency'),
-                        'event': self._get_cell_text(row, 'calendar__event'),
-                        'forecast': self._get_cell_text(row, 'calendar__forecast'),
-                        'previous': self._get_cell_text(row, 'calendar__previous')
-                    }
-                    news_items.append(news_item)
-            
-            return news_items
-            
-        except Exception as e:
-            print(f"Error fetching forex news: {e}")
-            return []
-    
-    def _get_cell_text(self, row: BeautifulSoup, class_name: str) -> str:
-        """Extract text from a table cell"""
-        cell = row.find('td', class_=class_name)
-        return cell.text.strip() if cell else 'N/A'
+# Initialize Trello client
+trello_client = TrelloClient(api_key=TRELLO_API_KEY, token=TRELLO_TOKEN)
 
-    def create_comment(self, news_items: List[Dict]) -> str:
-        """Create a formatted comment from news items"""
-        if not news_items:
-            return "No high-impact forex events found."
-        
-        comment = f"🔔 High Impact Forex Events - Updated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        
-        # Group events by date
-        current_date = None
-        for item in news_items:
-            # Add date header if it's a new date
-            if item['date'] != current_date:
-                current_date = item['date']
-                comment += f"📅 {current_date}\n"
-            
-            # Add event details
-            comment += (
-                f"⏰ {item['time']} | {item['currency']}\n"
-                f"📊 {item['event']}\n"
-                f"Forecast: {item['forecast']} | Previous: {item['previous']}\n"
-                f"-------------------\n"
-            )
-        
-        return comment
+# Function to get the Trello card by name
+def get_trello_card(list_id, card_name):
+    list_obj = trello_client.get_list(list_id)
+    cards = list_obj.list_cards()
+    for card in cards:
+        if card.name == card_name:
+            return card
+    return None
 
-    def update_trello(self):
-        """Main method to update Trello card with forex news"""
-        print("Starting Forex News update...")
-        
-        # Get Trello card
-        card = self.get_card()
-        if not card:
-            return
-        
-        # Get forex news
-        news_items = self.get_forex_news()
-        
-        # Create and post comment
-        comment = self.create_comment(news_items)
-        try:
+# Function to fetch existing comments on the card
+def fetch_existing_comments(card):
+    comments = card.fetch_comments()
+    return [comment['data']['text'] for comment in comments]
+
+# Function to scrape Forex Factory for news on a specific date
+def scrape_forex_factory(date):
+    url = f'https://www.forexfactory.com/calendar?day={date}'
+    session = HTMLSession()
+    try:
+        response = session.get(url)
+        response.html.render()  # Render JavaScript
+        soup = response.html
+
+        events = []
+        for row in soup.find('tr.calendar_row'):
+            impact = row.find('.impact', first=True)
+            if impact and ('high' in impact.attrs.get('class', []) or 'medium' in impact.attrs.get('class', [])):
+                date_str = row.find('.date', first=True).text.strip()
+                time_str = row.find('.time', first=True).text.strip()
+                event = row.find('.event', first=True).text.strip()
+                events.append((date_str, time_str, event))
+
+        return events
+    except Exception as e:
+        print(f"Error fetching forex news: {e}")
+        return []
+
+# Function to add new comments to the card
+def add_new_comments(card, events):
+    existing_comments = fetch_existing_comments(card)
+    for date_str, time_str, event in events:
+        comment = f"Event: {event} | Date: {date_str} | Time: {time_str}"
+        if comment not in existing_comments:
             card.comment(comment)
-            print(f"Successfully updated Trello card with {len(news_items)} events")
-        except Exception as e:
-            print(f"Error posting comment to Trello: {e}")
+            print(f"Added comment: {comment}")
 
+# Main function
 def main():
-    # Check for required environment variables
-    if not os.getenv('TRELLO_API_KEY') or not os.getenv('TRELLO_TOKEN'):
-        print("Error: Missing Trello credentials")
-        print("Please set TRELLO_API_KEY and TRELLO_TOKEN environment variables")
+    # Specify the date to scrape (January 19, 2024)
+    date_to_scrape = 'jan19.2024'
+
+    # Get the board
+    board = trello_client.get_board(TRELLO_BOARD_ID)
+
+    # Get the list
+    lists = board.all_lists()
+    ongoing_list = next((lst for lst in lists if lst.name == TRELLO_LIST_NAME), None)
+    if not ongoing_list:
+        print(f"List '{TRELLO_LIST_NAME}' not found on board '{TRELLO_BOARD_ID}'")
         return
-    
-    # Run the updater
-    updater = ForexTrelloUpdater()
-    updater.update_trello()
+
+    # Get the card
+    profile_card = get_trello_card(ongoing_list.id, TRELLO_CARD_NAME)
+    if not profile_card:
+        print(f"Card '{TRELLO_CARD_NAME}' not found in list '{TRELLO_LIST_NAME}'")
+        return
+
+    # Scrape Forex Factory for the specified date
+    events = scrape_forex_factory(date_to_scrape)
+
+    if not events:
+        print(f"No high or mid-impact events found for {date_to_scrape}.")
+        return
+
+    # Add new comments to the card
+    add_new_comments(profile_card, events)
 
 if __name__ == "__main__":
     main()
