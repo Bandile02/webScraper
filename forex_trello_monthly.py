@@ -1,7 +1,6 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
 from trello import TrelloClient
 
 # Trello API credentials (read from environment variables)
@@ -28,7 +27,7 @@ def fetch_existing_comments(card):
     comments = card.fetch_comments()
     return [comment['data']['text'] for comment in comments]
 
-# Function to scrape Forex Factory for monthly news
+# Function to scrape Forex Factory for high and mid-impact news
 def scrape_forex_factory():
     url = 'https://www.forexfactory.com/calendar?month=this'
     response = requests.get(url)
@@ -45,30 +44,11 @@ def scrape_forex_factory():
 
     return events
 
-# Function to find dates with events two hours apart
-def find_dates_with_two_hour_gap(events):
-    date_time_events = []
-    for date_str, time_str, event in events:
-        if time_str:  # Skip events with no time
-            event_time = datetime.strptime(f"{date_str} {time_str}", "%m-%d-%Y %I:%M%p")
-            date_time_events.append(event_time)
-
-    date_time_events.sort()
-    two_hour_gap_dates = set()
-
-    for i in range(len(date_time_events) - 1):
-        time_diff = abs((date_time_events[i + 1] - date_time_events[i]).total_seconds())
-        if time_diff <= 7200:  # 2 hours in seconds
-            two_hour_gap_dates.add(date_time_events[i].strftime("%Y-%m-%d"))
-            two_hour_gap_dates.add(date_time_events[i + 1].strftime("%Y-%m-%d"))
-
-    return sorted(two_hour_gap_dates)
-
 # Function to add new comments to the card
-def add_new_comments(card, new_dates):
+def add_new_comments(card, events):
     existing_comments = fetch_existing_comments(card)
-    for date in new_dates:
-        comment = f"Date with events two hours apart: {date}"
+    for date_str, time_str, event in events:
+        comment = f"Event: {event} | Date: {date_str} | Time: {time_str}"
         if comment not in existing_comments:
             card.comment(comment)
             print(f"Added comment: {comment}")
@@ -93,14 +73,13 @@ def main():
 
     # Scrape Forex Factory
     events = scrape_forex_factory()
-    two_hour_gap_dates = find_dates_with_two_hour_gap(events)
 
-    if not two_hour_gap_dates:
-        print("No dates with events two hours apart found.")
+    if not events:
+        print("No high or mid-impact events found.")
         return
 
     # Add new comments to the card
-    add_new_comments(profile_card, two_hour_gap_dates)
+    add_new_comments(profile_card, events)
 
 if __name__ == "__main__":
     main()
