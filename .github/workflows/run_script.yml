@@ -29,4 +29,4 @@ jobs:
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
           TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
         run: |
-          python trello_comment.py
+          python forex_trello_monthly.py
