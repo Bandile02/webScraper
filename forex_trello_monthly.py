@@ -27,9 +27,9 @@ def fetch_existing_comments(card):
     comments = card.fetch_comments()
     return [comment['data']['text'] for comment in comments]
 
-# Function to scrape Forex Factory for high and mid-impact news
-def scrape_forex_factory():
-    url = 'https://www.forexfactory.com/calendar?month=this'
+# Function to scrape Forex Factory for news on a specific date
+def scrape_forex_factory(date):
+    url = f'https://www.forexfactory.com/calendar?day={date}'
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -55,6 +55,9 @@ def add_new_comments(card, events):
 
 # Main function
 def main():
+    # Specify the date to scrape (January 19, 2024)
+    date_to_scrape = 'jan19.2024'
+
     # Get the board
     board = trello_client.get_board(TRELLO_BOARD_ID)
 
@@ -71,11 +74,11 @@ def main():
         print(f"Card '{TRELLO_CARD_NAME}' not found in list '{TRELLO_LIST_NAME}'")
         return
 
-    # Scrape Forex Factory
-    events = scrape_forex_factory()
+    # Scrape Forex Factory for the specified date
+    events = scrape_forex_factory(date_to_scrape)
 
     if not events:
-        print("No high or mid-impact events found.")
+        print(f"No high or mid-impact events found for {date_to_scrape}.")
         return
 
     # Add new comments to the card
